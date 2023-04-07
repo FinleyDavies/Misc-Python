@@ -14,8 +14,8 @@ class Particle:
                  direction: float,
                  speed: float,
                  duration: float,
-                 size_start: float,
-                 size_end: float,
+                 size_max: float,
+                 size_min: float,
                  colour: Tuple[int],
                  offset: float,
                  age: float = 0,
@@ -26,7 +26,7 @@ class Particle:
         self.direction = direction
         self.speed = speed
         self.active_frames = duration * fps
-        self.size = size_start
+        self.size = size_max
         self.colour = colour
         self.offset = offset
 
@@ -35,8 +35,11 @@ class Particle:
 
         self.direction_vector = Vector2.from_polar((speed, direction))
 
+        self.size_function = None
+        self.position_function = None
+
         self.position_step = self.direction_vector * speed * (1 / fps)
-        self.size_step = (size_end - size_start) / duration * (1 / fps)
+        self.size_step = (size_min - size_max) / duration * (1 / fps)
 
         if self.age > 0:
             self.updates -= 1
@@ -54,8 +57,10 @@ class Particle:
         screen = self.owner.get_screen()
         mode = self.owner.get_draw_mode()
 
+        size = self.size_function(self.size)
+
         if mode == "gfxdraw":
-            pass
+            gfxdraw.circle(screen, int(self.position[0]), int(self.position[1]), int(size), self.colour)
         elif mode == "draw":
             draw.circle(screen, self.colour, self.position, int(self.size))
 
@@ -63,18 +68,16 @@ class Particle:
         self.owner.remove_particle(self)
 
 
-
 class ParticleSystemPoint:
     MAX_VELOCITIES = 100
     DEFAULTS = {
-        "position": ((0, 0), 0, 100),
+        "position": ((0, 0), (0, 0), 100),
         "direction": (0, 360, 720),
         "speed": (10, 5, 10),
         "rate": (20, 0, 10),
         "duration": (1, 0.1, 10),
-        "size_start": (5, 1, 2),
-        "size_end": (0, 0, 0),
-        "colour": ((230, 230, 230), 10, 5),
+        "size": ((5, 0), (1, 0), 2),
+        "colour": ((230, 230, 230), (10, 10, 10), 5),
         "offset": (0, 0, 10)
     }
 
@@ -85,8 +88,7 @@ class ParticleSystemPoint:
                  speed: Tuple[Union[float, int]] = (),
                  rate: Tuple[Union[float, int]] = (),
                  duration: Tuple[Union[float, int]] = (),
-                 size_start: Tuple[Union[float, int]] = (),
-                 size_end: Tuple[Union[float, int]] = (),
+                 size: Tuple[Union[float, int]] = (),
                  colour: Tuple[Union[Tuple, float]] = (),
                  offset: Tuple[Union[float, int]] = ()):
 
@@ -100,11 +102,10 @@ class ParticleSystemPoint:
         self.speed = fill_defaults(speed, "speed")
         self.rate = fill_defaults(rate, "rate")
         self.duration = fill_defaults(duration, "duration")
-        self.size_start = fill_defaults(size_start, "size_start")
-        self.size_end = fill_defaults(size_end, "size_end")
+        self.size = fill_defaults(size, "size")
         self.colour = fill_defaults(colour, "colour")
         self.offset = fill_defaults(offset, "offset")
-        self.draw_mode = "draw"
+        self.draw_mode = "gfxdraw"
 
         self.start_time = None
         self.previous_emit_time = None
@@ -121,10 +122,11 @@ class ParticleSystemPoint:
     def get_draw_mode(self):
         return self.draw_mode
 
-    def get_random_velocity(self):
-        if self.MAX_VELOCITIES > 0:
-            if self.total_particles == self.MAX_VELOCITIES:
-                return random.choice(self.velocities)
+    def set_velocity(self, velocity: Tuple[int]):
+        """Changes speed and direction using a velocity vector"""
+        speed, direction = Vector2(*velocity).as_polar()
+        self.speed = (speed,) + self.speed[1:]
+        self.direction = (direction,) + self.direction[1:]
 
     def emit(self) -> int:
         if self.start_time is None:
@@ -133,8 +135,8 @@ class ParticleSystemPoint:
 
         current_time = time.time()
 
-        dT = current_time - self.previous_emit_time
-        n_particles = self.rate[0] * (1 / 60) # dT
+        dT = (1/60) #current_time - self.previous_emit_time
+        n_particles = self.rate[0] * (1 / 60)  # dT
 
         t = 0
         while t < dT:
@@ -172,17 +174,17 @@ class ParticleSystemPoint:
 
     def get_random_value(self, attr: str):
         if attr not in self.DEFAULTS:
-            raise TypeError(f"{attr} not a supported attribute")
+            raise ValueError(f"{attr} not a supported attribute")
 
         value, variance, num_steps = self.__getattribute__(attr)
 
         if num_steps == 0 or variance == 0:
             return value
 
-        step_size = variance * 2 / num_steps
+        print(value, variance)
         if isinstance(value, tuple):
-            return tuple([v + random.uniform(-0.5, 0.5) * num_steps * step_size for v in value])
-        return value + random.uniform(-0.5, 0.5) * num_steps * step_size
+            return tuple([v + int((random.random() - 0.5) * num_steps) / num_steps * variance[i] * 2 for i, v in enumerate(value)])
+        return value + int((random.random() - 0.5) * num_steps) / num_steps * variance * 2
 
     def generate_position(self):
         return Vector2(self.get_random_value("position"))
@@ -198,8 +200,8 @@ class ParticleSystemPoint:
 
     def generate_size(self, start: bool):
         if start:
-            return self.get_random_value("size_start")
-        return self.get_random_value("size_end")
+            return self.get_random_value("size")[0]
+        return self.get_random_value("size")[1]
 
     def generate_colour(self):
         return self.get_random_value("colour")
@@ -215,28 +217,34 @@ class ParticleSystemPolygon:
 
 if __name__ == "__main__":
     import pygame
+
     pygame.init()
 
     WIDTH, HEIGHT = 600, 600
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
+    def fade_in_out(t, min_value, max_value):
+        return -abs(2 * -t + size_max) + size_max
+
     p = ParticleSystemPoint(screen,
                             speed=(20,),
-                            direction=(90, 20, 10),
-                            rate=(500,),
-                            duration=(0.8,),
-                            colour=((230, 100, 20), 20))
+                            direction=(90, 20, 20),
+                            rate=(5000,),
+                            duration=(0.5,),
+                            colour=((230, 100, 21), (20, 20, 20)),
+                            size=((7, 4),),
+                            )
 
     p3 = ParticleSystemPoint(screen,
-                            speed=(17,),
-                            direction=(90, 20, 10),
-                            rate=(200,),
-                            duration=(0.2,),
-                            colour=((120, 20, 200), 20),
-                            size_start=(7,),
-                            size_end=(4,))
+                             speed=(17,),
+                             direction=(90, 17, 10),
+                             rate=(2000,),
+                             duration=(0.2,),
+                             colour=((120, 120, 230), (20, 20, 20)),
+                             size=((7, 4),))
 
-    p2 = ParticleSystemPoint(screen)
+    p2 = ParticleSystemPoint(screen,
+                             rate=(1,))
 
     print(f"start pos: {p.generate_position()}")
     print(f"start dir: {p.generate_direction()}")
@@ -249,11 +257,16 @@ if __name__ == "__main__":
     print(vars(p))
 
     clock = pygame.time.Clock()
+    previous_mouse_pos = pygame.mouse.get_pos()
+    mouse_vel = (0, 0)
 
     running = True
     while running:
         screen.fill((0, 0, 0))
 
+        current_mouse_pos = pygame.mouse.get_pos()
+        mouse_vel = tuple([x-y for x, y in zip(current_mouse_pos, previous_mouse_pos)])
+        new_vel = tuple([x+y for x, y in zip(mouse_vel, tuple(Vector2.from_polar((20, 90))))])
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -262,12 +275,12 @@ if __name__ == "__main__":
 
         if pygame.mouse.get_pressed()[0]:
             p.position = (pygame.mouse.get_pos(), 0, 0)
+            p.set_velocity(new_vel)
             p.emit()
 
         if pygame.mouse.get_pressed()[1]:
-            p2.position = (pygame.mouse.get_pos(), 0, 0)
+            p2.position = (pygame.mouse.get_pos(), (WIDTH//2, HEIGHT//2), 100)
             p2.emit()
-
 
         if pygame.mouse.get_pressed()[2]:
             p3.position = (pygame.mouse.get_pos(), 0, 0)
@@ -276,6 +289,8 @@ if __name__ == "__main__":
         p.update()
         p2.update()
         p3.update()
+
+        previous_mouse_pos = current_mouse_pos
         pygame.display.update()
         clock.tick(60)
 
