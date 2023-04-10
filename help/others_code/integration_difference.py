@@ -15,7 +15,7 @@ class Ball:
         self.surf = pygame.Surface((2 * r, 2 * r), pygame.SRCALPHA)
         pygame.draw.circle(self.surf, color, (r, r), r)
 
-        self.velocity = pygame.Vector2(100, -100)
+        self.velocity = pygame.Vector2(70, -190)
 
     def update_ghast(self, dt: float) -> None:
         self.velocity += g * dt
@@ -26,6 +26,8 @@ class Ball:
         self.velocity += g * dt
 
     def draw(self, screen: pygame.Surface) -> None:
+        if self.pos.y > 500:
+            self.velocity.y = -abs(self.v)
         screen.blit(self.surf, self.pos)
 
 
