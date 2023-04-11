@@ -45,7 +45,6 @@ button3 = tk.Button(
 entry = tk.Entry()
 text_box = tk.Text()
 
-slider = tk.
 
 button.pack()
 frame1 = tk.Frame()
