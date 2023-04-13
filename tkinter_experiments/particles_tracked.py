@@ -6,6 +6,11 @@ import math
 
 from utilities.vector import Vector
 
+from object_observer import Trackable, Mediator, Observer
+from observer_testing import ObserverApp
+import tkinter as tk
+import threading
+
 
 class Particle:
     def __init__(self,
@@ -20,6 +25,7 @@ class Particle:
                  offset: float,
                  age: float = 0,
                  fps: float = 60):
+
 
         self.owner = owner
         self.position = position
@@ -93,6 +99,7 @@ class ParticleSystemPoint:
                  size: Tuple[Union[float, int]] = (),
                  colour: Tuple[Union[Tuple, float]] = (),
                  offset: Tuple[Union[float, int]] = ()):
+
 
         def fill_defaults(specified: Tuple, name: str):
             n_args = len(specified)
@@ -183,7 +190,7 @@ class ParticleSystemPoint:
         if num_steps == 0 or variance == 0:
             return value
 
-        print(value, variance)
+        #(value, variance)
         if isinstance(value, tuple):
             return tuple([v + int((random.random() - 0.5) * num_steps) / num_steps * variance[i] * 2 for i, v in enumerate(value)])
         return value + int((random.random() - 0.5) * num_steps) / num_steps * variance * 2
@@ -216,6 +223,14 @@ class ParticleSystemPolygon:
     def __init__(self, polygon: List[Vector2]):
         pass
 
+def tkinter_thread(observer: Observer):
+    root = tk.Tk()
+
+    app = ObserverApp(observer, root)
+
+    app.pack(side="top", fill="both", expand=True)
+    root.mainloop()
+
 
 if __name__ == "__main__":
     import pygame
@@ -228,7 +243,7 @@ if __name__ == "__main__":
     def fade_in_out(t, min_value, max_value):
         return -abs(2 * -t + 1) * (max_value - min_value) + max_value
 
-    p = ParticleSystemPoint(screen,
+    system1 = ParticleSystemPoint(screen,
                             speed=(20,),
                             direction=(90, 20, 20),
                             rate=(5000,),
@@ -237,7 +252,7 @@ if __name__ == "__main__":
                             size=((7, 4),),
                             )
 
-    p3 = ParticleSystemPoint(screen,
+    system3 = ParticleSystemPoint(screen,
                              speed=(17,),
                              direction=(90, 17, 10),
                              rate=(2000,),
@@ -245,19 +260,31 @@ if __name__ == "__main__":
                              colour=((120, 120, 230), (20, 20, 20)),
                              size=((7, 4),))
 
-    p2 = ParticleSystemPoint(screen,
+    system2 = ParticleSystemPoint(screen,
                              rate=(1,))
 
-    print("random values:")
-    print(f"start pos: {p.generate_position()}")
-    print(f"start dir: {p.generate_direction()}")
-    print(f"start spe: {p.generate_speed()}")
-    print(f"dur: {p.generate_duration()}")
-    print(f"start size: {p.generate_size(True)}")
-    print(f"end size: {p.generate_size(False)}")
-    print(f"colour: {p.generate_colour()}")
-    print(f"offset: {p.generate_offset()}")
-    print(vars(p))
+    # print("random values:")
+    # print(f"start pos: {p.generate_position()}")
+    # print(f"start dir: {p.generate_direction()}")
+    # print(f"start spe: {p.generate_speed()}")
+    # print(f"dur: {p.generate_duration()}")
+    # print(f"start size: {p.generate_size(True)}")
+    # print(f"end size: {p.generate_size(False)}")
+    # print(f"colour: {p.generate_colour()}")
+    # print(f"offset: {p.generate_offset()}")
+    # print(vars(p))
+
+    mediator = Mediator()
+    p = Trackable.from_object(system1, "red particles")
+    p2 = Trackable.from_object(system2, "white_particles")
+    p3 = Trackable.from_object(system3, "blue_particles")
+    mediator.add_trackable(p)
+    mediator.add_trackable(p2)
+    mediator.add_trackable(p3)
+    observer = Observer(mediator)
+
+    observer_thread = threading.Thread(target=tkinter_thread, args=(observer,))
+    observer_thread.start()
 
     clock = pygame.time.Clock()
     previous_mouse_pos = pygame.mouse.get_pos()

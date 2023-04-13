@@ -7,36 +7,48 @@ import threading
 import re
 import logging
 
-EVENT_TYPES = ["set_attribute", "method_call", "within_threshold", "trackable_added", "trackable_removed"]
+
+class EVENT_TYPES:
+    SET_ATTRIBUTE = "set_attribute"
+    METHOD_CALL = "method_call"
+    WITHIN_THRESHOLD = "within_threshold"
+    TRACKABLE_ADDED = "trackable_added"
+    TRACKABLE_REMOVED = "trackable_removed"
+
+
+logger = logging.getLogger(__name__)
 
 
 class Trackable:
-    def __init__(self, name):
-        self._mediators = []
-        self._lock = threading.Lock()
+    dynamic_class_cache = {}
+
+    def __init__(self, obj, name: str = None):
+        if obj.__class__ not in self.dynamic_class_cache:
+            self.dynamic_class_cache[obj.__class__] = type(f"DynamicClass_{obj.__class__.__name__}",
+                                                           (obj.__class__, Trackable), {})
+
+        # Inherit special methods, attributes and methods from original class of obj
+        self.__class__ = self.dynamic_class_cache[obj.__class__]
+        self.__dict__ = obj.__dict__
 
         self._trackable_attributes = {}
         self._trackable_methods = {}
 
+        self._mediators = []
+        self._lock = threading.Lock()
+
         self.name = name
-        self.test(5)
 
     def __setattr__(self, key, value, silent=False):
         if key.startswith("_"):
-            super().__setattr__(key, value)
+            self.__dict__[key] = value
             return
 
         self._trackable_attributes[key] = value
 
         if not silent:
-            print(f"{self.__class__.__name__}({self.name}) setting {key} = {value}")
-            self.notify_mediators(key, value, EVENT_TYPES[0])
-
-    def __getattr__(self, item):
-        if item.startswith("_"):
-            return self.__dict__[item]
-        else:
-            return self._trackable_attributes[item]
+            logger.debug(f"{self} setting {key} = {value}")
+            self.notify_mediators(key, value, EVENT_TYPES.SET_ATTRIBUTE)
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -48,14 +60,14 @@ class Trackable:
         self._mediators.append(mediator)
 
         mediator.notify(self.name, self.name, [self.get_trackable_attributes(), self.get_trackable_methods()],
-                        EVENT_TYPES[3])
+                        EVENT_TYPES.TRACKABLE_ADDED)
 
     def remove_mediator(self, mediator):
         self._mediators.remove(mediator)
 
     def notify_mediators(self, key, value, type):
         for mediator in self._mediators:
-            print(f"notifying {mediator} of {self.name}.{key} = {value}")
+            logger.debug(f"notifying {mediator} of {self.name}.{key} = {value}")
             mediator.notify(self.name, key, value, type)
 
     def get_trackable_attributes(self):
@@ -67,7 +79,6 @@ class Trackable:
     def invoke(self, method_name, *args, **kwargs):
         if hasattr(self, method_name):
             method = getattr(self, method_name)
-            method2 = method
             return method(*args, **kwargs)
         else:
             raise AttributeError(f"{self} has no attribute {method_name}")
@@ -81,11 +92,11 @@ class Trackable:
                 self._trackable_methods[name] = 0
             self._trackable_methods[name] += 1
 
-            print("function called")
-            print(f"notifying mediators: {name}(args={args}, kwargs={kwargs})")
+            # print(f"notifying mediators of function call: {name}(args={args}, kwargs={kwargs})")
+            logger.debug(f"notifying mediators of function call: {name}(args={args}, kwargs={kwargs})")
 
             if not silent:
-                self.notify_mediators(name, args + tuple(kwargs), EVENT_TYPES[1])
+                self.notify_mediators(name, args + tuple(kwargs), EVENT_TYPES.METHOD_CALL)
 
             return func(self, *args, **kwargs)
 
@@ -93,7 +104,8 @@ class Trackable:
 
     @notify_method_call
     def test(self, depth):
-        print(f"test called with depth {depth}")
+        # print(f"test called with depth {depth}")
+        logger.debug(f"test called with depth {depth}")
         if depth > 0:
             self.test(depth - 1)
 
@@ -152,7 +164,8 @@ class Mediator:
         kwargs = kwargs or {}
         trackable = self._trackables[trackable_name]
         with trackable.get_lock():
-            print(f"invoking {trackable_name}.{method_name}({args}, {kwargs})")
+            # print(f"invoking {trackable_name}.{method_name}({args}, {kwargs})")
+            logger.debug(f"invoking {trackable_name}.{method_name}({args}, {kwargs})")
             trackable.invoke(method_name, *args, **kwargs)
 
     def get_all_attributes(self):
@@ -178,7 +191,8 @@ class Observer:
         self.notify_callback = callback
 
     def notify(self, trackable_name, key, value, type):
-        print(f"observer: {trackable_name}.{key} = {value} ({type})")
+        # print(f"observer: {trackable_name}.{key} = {value} ({type})")
+        logger.debug(f"observer: {trackable_name}.{key} = {value} ({type})")
         if self.notify_callback:
             self.notify_callback(trackable_name, key, value, type)
 
