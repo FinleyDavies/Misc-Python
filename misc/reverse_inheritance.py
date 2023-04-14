@@ -30,7 +30,9 @@ class Modified:
         class DynamicClass(original.__class__, Modified):
             pass
 
+        print(original.__dict__)
         self.__class__ = DynamicClass
+
         self.__dict__ = original.__dict__
 
     @staticmethod
@@ -44,9 +46,16 @@ class Modified:
         return wrapper
 
 
+
 def main():
+
     obj1 = Original([1, 2, 3])
+    string = "hello"
+
+
+
     modded = Modified(obj1)
+    modded_string = Modified(string)
 
     modded.do_thing()
     modded.do_other_thing()
