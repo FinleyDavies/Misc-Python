@@ -22,14 +22,23 @@ logger = logging.getLogger(__name__)
 class Trackable:
     dynamic_class_cache = {}
 
-    def __init__(self, obj, name: str = None):
-        if obj.__class__ not in self.dynamic_class_cache:
-            self.dynamic_class_cache[obj.__class__] = type(f"DynamicClass_{obj.__class__.__name__}",
-                                                           (obj.__class__, Trackable), {})
+    UPDATES_PER_SECOND = 20
+    UPDATE_INTERVAL = 1 / UPDATES_PER_SECOND
 
-        # Inherit special methods, attributes and methods from original class of obj
-        self.__class__ = self.dynamic_class_cache[obj.__class__]
-        self.__dict__ = obj.__dict__
+    def __init__(self, obj=None, name: str = None):
+        if obj is not None:
+            original_class = obj.__class__
+            merged_class = None
+            if original_class not in self.dynamic_class_cache:
+                merged_class = self.dynamic_class_cache[original_class] = type(
+                    f"DynamicClass_{original_class.__name__}",
+                    (original_class, Trackable), {})
+
+            # Inherit special methods, attributes and methods from original class of obj
+            self.__class__ = merged_class or self.dynamic_class_cache[original_class]
+            self.__dict__.update(obj.__dict__)
+            print(f"Trackable.__init__ {self.__class__} {self.__dict__})")
+
 
         self._trackable_attributes = {}
         self._trackable_methods = {}
@@ -37,18 +46,38 @@ class Trackable:
         self._mediators = []
         self._lock = threading.Lock()
 
-        self.name = name
+        self.name = name or self.__class__.__name__
+        self.last_update: Dict[str, float] = {}
 
     def __setattr__(self, key, value, silent=False):
-        if key.startswith("_"):
-            self.__dict__[key] = value
+        # if key.startswith("_"):
+        #     super.__setattr__(self, key, value)
+        #     return
+        #
+        # self._trackable_attributes[key] = value
+
+        super.__setattr__(self, key, value)
+        if silent or key.startswith("_") or key == "name" or key == "particles":
             return
 
-        self._trackable_attributes[key] = value
+        if time.time() - self.last_update.get(key, 0) < self.UPDATE_INTERVAL:
+            return
 
-        if not silent:
-            logger.debug(f"{self} setting {key} = {value}")
-            self.notify_mediators(key, value, EVENT_TYPES.SET_ATTRIBUTE)
+        if not isinstance(value, (int, float, str)):
+            return
+
+
+
+        logger.debug(f"{self} setting {key} = {value}")
+        self.notify_mediators(key, value, EVENT_TYPES.SET_ATTRIBUTE)
+        self.last_update[key] = time.time()
+
+    # def __getattr__(self, item):
+        # if item.startswith("_"):
+        #     return super.__getattr__(self, item)
+        #
+        # return self._trackable_attributes.get(item)
+
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.name})"
@@ -135,7 +164,7 @@ class Mediator:
 
     def remove_trackable(self, trackable: Trackable):
         with self._lock:
-            self._trackables.pop(trackable.name)
+            self._trackables.pop(trackable._name)
             trackable.remove_mediator(self)
 
     def add_observer(self, observer):
@@ -211,9 +240,9 @@ class Observer:
 def main():
     window = tkinter.Tk()
 
-    track = Trackable("test")
-    track2 = Trackable("test")
-    track3 = Trackable("test")
+    track = Trackable(None, "test")
+    track2 = Trackable(None, "test")
+    track3 = Trackable(None, "test")
 
     mediator = Mediator()
 

@@ -4,9 +4,11 @@ from typing import List, Union, Tuple
 import random
 import math
 
+import gc
+
 from utilities.vector import Vector
 
-from object_observer import Trackable, Mediator, Observer
+from object_observer import Trackable, Mediator, Observer, logger
 from observer_testing import ObserverApp
 import tkinter as tk
 import threading
@@ -25,7 +27,6 @@ class Particle:
                  offset: float,
                  age: float = 0,
                  fps: float = 60):
-
 
         self.owner = owner
         self.position = position
@@ -100,7 +101,6 @@ class ParticleSystemPoint:
                  colour: Tuple[Union[Tuple, float]] = (),
                  offset: Tuple[Union[float, int]] = ()):
 
-
         def fill_defaults(specified: Tuple, name: str):
             n_args = len(specified)
             return specified + self.DEFAULTS[name][n_args:]
@@ -144,7 +144,7 @@ class ParticleSystemPoint:
 
         current_time = time.time()
 
-        dT = (1/60) #current_time - self.previous_emit_time
+        dT = (1 / 60)  # current_time - self.previous_emit_time
         n_particles = self.rate[0] * (1 / 60)  # dT
 
         t = 0
@@ -164,7 +164,6 @@ class ParticleSystemPoint:
             t += dT / n_particles
 
         self.particles += []
-        self.total_particles += n_particles
 
         self.previous_emit_time = current_time
 
@@ -180,6 +179,7 @@ class ParticleSystemPoint:
     def remove_particle(self, particle: Particle):
         self.particles.remove(particle)
         self.total_particles -= 1
+        print(self.total_particles)
 
     def get_random_value(self, attr: str):
         if attr not in self.DEFAULTS:
@@ -190,9 +190,10 @@ class ParticleSystemPoint:
         if num_steps == 0 or variance == 0:
             return value
 
-        #(value, variance)
+        # (value, variance)
         if isinstance(value, tuple):
-            return tuple([v + int((random.random() - 0.5) * num_steps) / num_steps * variance[i] * 2 for i, v in enumerate(value)])
+            return tuple([v + int((random.random() - 0.5) * num_steps) / num_steps * variance[i] * 2 for i, v in
+                          enumerate(value)])
         return value + int((random.random() - 0.5) * num_steps) / num_steps * variance * 2
 
     def generate_position(self):
@@ -223,6 +224,7 @@ class ParticleSystemPolygon:
     def __init__(self, polygon: List[Vector2]):
         pass
 
+
 def tkinter_thread(observer: Observer):
     root = tk.Tk()
 
@@ -240,28 +242,30 @@ if __name__ == "__main__":
     WIDTH, HEIGHT = 600, 600
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
+
     def fade_in_out(t, min_value, max_value):
         return -abs(2 * -t + 1) * (max_value - min_value) + max_value
 
+
     system1 = ParticleSystemPoint(screen,
-                            speed=(20,),
-                            direction=(90, 20, 20),
-                            rate=(5000,),
-                            duration=(0.5,),
-                            colour=((230, 100, 21), (20, 20, 20)),
-                            size=((7, 4),),
-                            )
+                                  speed=(20,),
+                                  direction=(90, 20, 20),
+                                  rate=(5000,),
+                                  duration=(0.5,),
+                                  colour=((230, 100, 21), (20, 20, 20)),
+                                  size=((7, 4),),
+                                  )
 
     system3 = ParticleSystemPoint(screen,
-                             speed=(17,),
-                             direction=(90, 17, 10),
-                             rate=(2000,),
-                             duration=(0.2,),
-                             colour=((120, 120, 230), (20, 20, 20)),
-                             size=((7, 4),))
+                                  speed=(17,),
+                                  direction=(90, 17, 10),
+                                  rate=(2000,),
+                                  duration=(0.2,),
+                                  colour=((120, 120, 230), (20, 20, 20)),
+                                  size=((7, 4),))
 
     system2 = ParticleSystemPoint(screen,
-                             rate=(1,))
+                                  rate=(1,))
 
     # print("random values:")
     # print(f"start pos: {p.generate_position()}")
@@ -275,28 +279,42 @@ if __name__ == "__main__":
     # print(vars(p))
 
     mediator = Mediator()
-    p = Trackable.from_object(system1, "red particles")
-    p2 = Trackable.from_object(system2, "white_particles")
-    p3 = Trackable.from_object(system3, "blue_particles")
+    p = Trackable(system1, "red_particles")
+    p2 = Trackable(system2, "white_particles")
+    p3 = Trackable(system3, "blue_particles")
     mediator.add_trackable(p)
     mediator.add_trackable(p2)
     mediator.add_trackable(p3)
+
+    clock = pygame.time.Clock()
+    previous_mouse_pos = pygame.mouse.get_pos()
+    mouse_vel = (0, 0)
+
+    # to_track = [ParticleSystemPoint, ParticleSystemPolygon]
+    # for key, value in globals().copy().items():
+    #     # if the value is an instance of a class
+    #     if any(isinstance(value, c) for c in to_track):
+    #         key = Trackable(value, key)
+    #         mediator.add_trackable(key)
+
     observer = Observer(mediator)
 
     observer_thread = threading.Thread(target=tkinter_thread, args=(observer,))
     observer_thread.start()
 
-    clock = pygame.time.Clock()
-    previous_mouse_pos = pygame.mouse.get_pos()
-    mouse_vel = (0, 0)
+    # print(globals())
+    # for obj in gc.get_objects():
+    #     print(obj)
+    # obj = Trackable(obj, obj.__class__.__name__.lower())
+    # mediator.add_trackable(obj)
 
     running = True
     while running:
         screen.fill((0, 0, 0))
 
         current_mouse_pos = pygame.mouse.get_pos()
-        mouse_vel = tuple([x-y for x, y in zip(current_mouse_pos, previous_mouse_pos)])
-        new_vel = tuple([x+y for x, y in zip(mouse_vel, tuple(Vector2.from_polar((20, 90))))])
+        mouse_vel = tuple([x - y for x, y in zip(current_mouse_pos, previous_mouse_pos)])
+        new_vel = tuple([x + y for x, y in zip(mouse_vel, tuple(Vector2.from_polar((20, 90))))])
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -309,7 +327,7 @@ if __name__ == "__main__":
             p.emit()
 
         if pygame.mouse.get_pressed()[1]:
-            p2.position = (pygame.mouse.get_pos(), (WIDTH//2, HEIGHT//2), 100)
+            p2.position = (pygame.mouse.get_pos(), (WIDTH // 2, HEIGHT // 2), 100)
             p2.emit()
 
         if pygame.mouse.get_pressed()[2]:
