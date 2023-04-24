@@ -1,5 +1,6 @@
 import pygame
 from pygame.locals import *
+from pygame import gfxdraw
 
 from math import sin, cos, tan, pi, sqrt, floor, ceil
 import numpy as np
@@ -8,7 +9,7 @@ from trackable import *
 from gui import ObserverApp
 
 WIDTH, HEIGHT = 640, 480
-RADIUS = 100
+RADIUS = 50
 
 
 class SphericalMapping:
@@ -147,7 +148,6 @@ def create_normal_sphere2(radius):
     return pygame.surfarray.make_surface(normal.astype(np.uint8))
 
 
-
 def create_normal_sphere2_vectorised(radius, axis=-1):
     tracked_axis = -1
     x_coords = np.arange(radius * 2)
@@ -167,6 +167,22 @@ def create_normal_sphere2_vectorised(radius, axis=-1):
     return pygame.surfarray.make_surface(normal.reshape(radius * 2, radius * 2, 3).astype(np.uint8))
 
 
+def create_cel_sphere(screen, radius, steps=2, colours=None):
+    x_coords = np.arange(radius * 2)
+    y_coords = np.arange(radius * 2)
+    x, y = np.meshgrid(x_coords, y_coords)
+    point2d = np.stack([x, y], axis=-1) - np.array([radius, radius])
+    distance = np.linalg.norm(point2d, axis=-1)
+    cel = np.zeros((radius * 2, radius * 2, 3))
+    # cel[distance < radius] = 1
+    # cel[distance < radius*0.85] = 127
+    cel[distance < radius] = (255, 0, 0)
+    cel = pygame.surfarray.make_surface(cel.astype(np.uint8))
+    cel.set_colorkey((0, 0, 0))
+
+    return cel
+
+
 def initialise_gui():
     def run_gui(observer):
         import tkinter as tk
@@ -181,9 +197,17 @@ def initialise_gui():
     return mediator
 
 
-@track_vars("tracked_axis")
+def map_normals_to_sphere(normal_array, environment_map, vector_offset=None):
+    vector_offset = vector_offset or np.array([0, 0, 0])
+    normal_array = normal_array / 255 * 2 - 1
+    # rotate each vector in the normal array by the difference between the vector offset and the unit vector
+    normal_array = np.array(
+        [rotate_vector(vec, vector_offset - np.array([0, 0, 1]), angle) for vec, angle in zip(normal_array, angles)])
+
+
+# @track_vars("tracked_axis")
 def main():
-    mediator = initialise_gui()
+    # mediator = initialise_gui()
     tracked_axis = -1
     angle1, angle2 = 360, 360
     import random
@@ -195,6 +219,7 @@ def main():
     # normal_map = create_normal_sphere(radius=RADIUS, steps=360, offset1=angle1, offset2=angle2, size=1)
     normal_map2 = create_normal_sphere2(radius=RADIUS)
     normal_map = create_normal_sphere2_vectorised(RADIUS)
+    cel_sphere = create_cel_sphere(screen, RADIUS, steps=10)
 
     running = True
     while running:
@@ -202,14 +227,20 @@ def main():
             if event.type == QUIT:
                 running = False
 
-        # dt = clock.tick(60)
-        screen.fill((0, 0, 0))
+        # dt = clock.tick(120)
+        screen.fill((255, 255, 255))
 
         # normal_map = create_normal_sphere(radius=RADIUS, steps=360, offset1=angle1, offset2=angle2, size=1)
         # normal_map2 = create_normal_sphere2(radius=RADIUS)
-        normal_map = create_normal_sphere2_vectorised(RADIUS, tracked_axis)
+        # normal_map = create_normal_sphere2_vectorised(RADIUS, tracked_axis)
+
         pos = pygame.mouse.get_pos()
-        screen.blit(normal_map, (pos[0] - RADIUS, pos[1] - RADIUS))
+        for i in range(1000):
+            screen.blit(cel_sphere, (pos[0] - RADIUS, pos[1] - RADIUS))
+            pygame.draw.circle(screen, (255, 0, 0), (pos[0] + RADIUS * 2.5, pos[1]), RADIUS)
+            gfxdraw.filled_circle(screen, int(pos[0] + RADIUS * 2.5 * 2), pos[1], RADIUS, (255, 0, 0))
+
+        # screen.blit(normal_map, (pos[0] - RADIUS, pos[1] - RADIUS))
 
         # screen.blit(normal_map, (WIDTH // 2 - 2.5 * RADIUS, HEIGHT // 2 - RADIUS))
         # screen.blit(normal_map2, (WIDTH // 2 + RADIUS // 2, HEIGHT // 2 - RADIUS))

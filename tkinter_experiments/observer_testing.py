@@ -112,7 +112,7 @@ def main():
     # notebook = ttk.Notebook(root)
     # main_tab = ttk.Frame(notebook)
 
-    t = Trackable("test")
+    t = Trackable(None, "test")
     m = Mediator()
     m.add_trackable(t)
     t.x = 0
