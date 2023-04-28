@@ -2,6 +2,7 @@ from enum import Enum
 
 import pygame
 import numpy
+from simulation import Simulation
 
 from typing import List, Dict
 
@@ -12,11 +13,13 @@ from typing import List, Dict
 #   Restlessness - how quickly an animal gets bored
 #   Friendliness - how similar another animal must be to be considered a friend
 #   Predictability - how often an animal changes heading
-#   Sleepiness - how quickly an animal gets tired
+#   Sleepiness - how often an animal sleeps
 #   Courage - how likely an animal is to attack or run from another animal when under threat
 
 
-# Stats: (similar to genes, but are dependent on genes and features (to prevent animals from always
+# Stats: (similar to genes, but are dependent on genes and features (to prevent animals from just maxing out all stats,
+#        so are properties of the animal, not the genome)
+#  Parameters:
 #   Energy - how much energy an animal has
 #   Health - how much damage an animal can take before dying
 #   Hunger - how hungry an animal is
@@ -39,20 +42,22 @@ from typing import List, Dict
 #   Air Speed - how fast an animal can move in air
 
 
-# Features: (determine stats and appearance, each has a strength/prominence gene)
-#  Discrete:
+# Features: (determine stats and appearance, each has a strength/prominence gene which influences energy cost)
+#  Sensors:
 #   Eyes - lens shape: FOV, range
+#
 
-#  Continuous:
+#  Stat modifiers: (each value has a weight gene, influencing the distribution of the strength gene, negative values
+#                   have discount, which reduces the negative effect the feature has on that particular stat)
 #   Brain - +attention, +memory, +decisiveness
 #   Legs - +speed, -injury resistance, +movement efficiency
 #   Tail - +agility, +defense, -speed
 #   Skin - +injury resistance, -speed, +cold resistance, -heat resistance
-#   Teeth -
-#   Coat - +cold resistance, +heat resistance,
-#   Wings
 #   Gills - +water resistance,
 #   Fins - +water resistance, +water speed, -land speed
+#   Coat - +cold resistance, +heat resistance,
+#   Teeth -
+#   Wings -
 #   Horns -
 
 # all animals have all features, each on a continuum based on the feature's strength gene
@@ -84,6 +89,9 @@ class Gene:
     def set_value(self, value):
         raise NotImplementedError
 
+    def flatten(self):
+        raise NotImplementedError
+
 
 class GeneHider(type):
     """Metaclass that restricts access to genes which are part of a LinkedGene to that LinkedGene's methods"""
@@ -93,6 +101,8 @@ class GeneHider(type):
 
 
 class SingleGene(Gene):
+    """All genes are normalized to a range of 0 to 1, and then scaled to the appropriate range for the gene, so that if
+    a gene is missed during crossover, the resulting gene will still be valid"""
     class Mode(Enum):
         CLIP = 0
         WRAP = 1
@@ -109,15 +119,15 @@ class SingleGene(Gene):
 
     def clamp(self):
         if self.mode == SingleGene.Mode.CLIP:
-            self.value = numpy.clip(self.value, self.min_value, self.max_value)
+            self.value = numpy.clip(self.value, 0, 1)
         elif self.mode == SingleGene.Mode.WRAP:
-            self.value = numpy.mod(self.value, self.max_value)
+            self.value = numpy.mod(self.value, 1)
         elif self.mode == SingleGene.Mode.BOUNCE:
-            self.value = numpy.mod(self.value, self.max_value)
-            self.value = numpy.where(self.value > self.max_value / 2, self.max_value - self.value, self.value)
+            self.value = numpy.mod(self.value, 1)
+            self.value = numpy.where(self.value > 1 / 2, 1 - self.value, self.value)
 
     def randomize(self):
-        self.value = numpy.random.uniform(self.min_value, self.max_value, self.dimension)
+        self.value = numpy.random.uniform(0, 1, self.dimension)
 
     def set_value(self, value):
         assert len(value) == self.dimension, f"Value must have {self.dimension} dimensions for gene {self.name}," \
@@ -128,6 +138,9 @@ class SingleGene(Gene):
     def mutate(self, variance):
         self.value += numpy.random.normal(0, variance, self.dimension)
         self.clamp()
+
+    def __repr__(self):
+        return f"{self.name}: {self.value}"
 
 
 class LinkedGene(Gene):
@@ -167,17 +180,17 @@ class LinkedGene(Gene):
 
 class Feature:
     def __init__(self):
-        # todo gene groups for genes that are inversely proportional to each other
         self.COST_PER_UNIT_PER_SECOND = 1  # the energy cost of each unit of this feature
-        self.units = 1  # the total strength of this feature - can increase or decrease
-        self.max_units = 10  # the maximum number of units this feature can have
+        self.strength = 1  # the total strength of this feature - can increase or decrease
+        self.max_strength = 10  # the maximum number of units this feature can have
 
         self.genes = list()  # the genes that control this feature
 
 
-class Eye(Feature):
-    def __init__(self):
-        super().__init__()
+class Sensor(Feature):
+    """Discrete feature, """
+    pass
+
 
 
 class Organism:
@@ -191,12 +204,14 @@ class Organism:
         PREDICTABILITY = 6
         MEMORY = 7
 
-    def __init__(self):
+    def __init__(self, sim: "Simulation"):
         self.genes: List[Gene] = []
         self.flat_genes = []
         self.features: Dict[str, Feature] = {}
         self.energy = 0
         self.max_energy = 100
+        self.sim = sim
+
 
     @classmethod
     def from_parents(cls, parent1: "Organism", parent2: "Organism"):
@@ -212,7 +227,7 @@ class Organism:
         """Returns a value between 0 and 1 indicating how similar this animal is to another animal"""
         pass
 
-    def flatten_genes(self):
+    def get_genome(self):
         """Returns a numpy array of all genes in this animal"""
         pass
 
@@ -240,3 +255,12 @@ def main():
 
 if __name__ == "__main__":
     gene1 = SingleGene("gene1", 0, 10)
+    gene2 = SingleGene("gene2", 0, 10)
+    gene1.randomize()
+    gene2.randomize()
+    print(gene1)
+    print(gene2)
+    gene1.mutate(0.05)
+    gene2.mutate(0.05)
+    print(gene1)
+    print(gene2)

@@ -1,0 +1,36 @@
+// Behaviour genes:
+Diet            [value]
+Attention       [value]
+Restlessness    [value]
+Friendliness    [value]
+Sleepiness      [value]
+Courage         [value]
+
+// State change genes:
+State           [parameter1] [min_threshold, max_threshold]
+                [parameter2] [min_threshold, max_threshold]
+                ...                                         * n_states
+
+// Movement genes:
+Speed                   [percent_of_max_speed]
+Predictability          [interval_between_direction_changes]
+Direction
+    Stimuli Headings    [enemy_offset, friend_offset, random_offset, food_offset, water_offset, shelter_offset]
+                        [enemy_weight, friend_weight, random_weight, food_weight, water_weight, shelter_weight]
+    Stimuli Velocities  [enemy_vel_offset, friend_vel_offset]
+                        [enemy_vel_weight, friend_vel_weight]
+
+
+
+// Stat genes:
+Brain           [strength] [stat1_weight, stat2_weight, ...]
+Legs            [strength] [stat1_weight, stat2_weight, ...]
+Tail            [strength] [stat1_weight, stat2_weight, ...]
+Skin            [strength] [stat1_weight, stat2_weight, ...]
+Gills           [strength] [stat1_weight, stat2_weight, ...]
+Fins            [strength] [stat1_weight, stat2_weight, ...]
+Coat            [strength] [stat1_weight, stat2_weight, ...]
+
+// Feature Genes:
+Eyes            [number] [colour]
+Eye             [strength] [FOV_weight, range_weight, detection_weight] * max_eyes
