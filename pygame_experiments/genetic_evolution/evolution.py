@@ -7,7 +7,7 @@ from simulation import Simulation
 from typing import List, Dict
 
 
-# Genes: (determine behaviour by influencing state transitions)
+# Genes: (determine behaviour by influencing state transitions) (these have no energy cost)
 #   Diet - how much energy an animal gets from eating plants vs other animals
 #   Attention - how much an animal pays attention to its surroundings when not hunting or in danger
 #   Restlessness - how quickly an animal gets bored
@@ -16,9 +16,6 @@ from typing import List, Dict
 #   Sleepiness - how often an animal sleeps
 #   Courage - how likely an animal is to attack or run from another animal when under threat
 
-
-# Stats: (similar to genes, but are dependent on genes and features (to prevent animals from just maxing out all stats,
-#        so are properties of the animal, not the genome)
 #  Parameters:
 #   Energy - how much energy an animal has
 #   Health - how much damage an animal can take before dying
@@ -27,6 +24,8 @@ from typing import List, Dict
 #   Temperature - how hot or cold an animal is
 #   Comfort - how comfortable an animal is - affected by temperature, hunger, thirst, and injury
 
+# Stats: (similar to genes, but are dependent on genes and features (to prevent animals from just maxing out all stats,
+#        so are properties of the animal, not the genome) (these have an energy cost)
 #   Injury Threshold - how much damage an animal can take before being injured
 #   Speed - how fast an animal can move
 #   Defense - damage reduction when being attacked
@@ -34,6 +33,7 @@ from typing import List, Dict
 #   Movement Efficiency - how much energy an animal uses per unit of movement
 #   Decisiveness - how quickly an animal makes decisions
 #   Memory - for how long an animal remembers the location of food/water/predators
+#   Perception - the accuracy at which an organism can sense an others stats
 #   Cold Resistance - how much damage and energy an animal takes from cold
 #   Heat Resistance - how much damage and energy an animal takes from heat
 #   Water Resistance - how much damage and energy an animal takes in water
@@ -103,6 +103,7 @@ class GeneHider(type):
 class SingleGene(Gene):
     """All genes are normalized to a range of 0 to 1, and then scaled to the appropriate range for the gene, so that if
     a gene is missed during crossover, the resulting gene will still be valid"""
+
     class Mode(Enum):
         CLIP = 0
         WRAP = 1
@@ -192,7 +193,6 @@ class Sensor(Feature):
     pass
 
 
-
 class Organism:
     class Stats(Enum):
         SPEED = 0
@@ -211,7 +211,6 @@ class Organism:
         self.energy = 0
         self.max_energy = 100
         self.sim = sim
-
 
     @classmethod
     def from_parents(cls, parent1: "Organism", parent2: "Organism"):
