@@ -5,8 +5,8 @@ from pygame import gfxdraw
 from math import sin, cos, tan, pi, sqrt, floor, ceil
 import numpy as np
 
-from trackable import *
-from gui import ObserverApp
+# from trackable import *
+# from gui import ObserverApp
 
 WIDTH, HEIGHT = 640, 480
 RADIUS = 50
@@ -183,18 +183,18 @@ def create_cel_sphere(screen, radius, steps=2, colours=None):
     return cel
 
 
-def initialise_gui():
-    def run_gui(observer):
-        import tkinter as tk
-        root = tk.Tk()
-        app = ObserverApp(observer, master=root)
-        app.pack()
-        root.mainloop()
-
-    mediator = Mediator()
-    o = Observer(mediator)
-    threading.Thread(target=run_gui, args=(o,)).start()
-    return mediator
+# def initialise_gui():
+#     def run_gui(observer):
+#         import tkinter as tk
+#         root = tk.Tk()
+#         app = ObserverApp(observer, master=root)
+#         app.pack()
+#         root.mainloop()
+#
+#     mediator = Mediator()
+#     o = Observer(mediator)
+#     threading.Thread(target=run_gui, args=(o,)).start()
+#     return mediator
 
 
 def map_normals_to_sphere(normal_array, environment_map, vector_offset=None):
@@ -230,20 +230,20 @@ def main():
         # dt = clock.tick(120)
         screen.fill((255, 255, 255))
 
-        # normal_map = create_normal_sphere(radius=RADIUS, steps=360, offset1=angle1, offset2=angle2, size=1)
-        # normal_map2 = create_normal_sphere2(radius=RADIUS)
-        # normal_map = create_normal_sphere2_vectorised(RADIUS, tracked_axis)
+        normal_map = create_normal_sphere(radius=RADIUS, steps=360, offset1=angle1, offset2=angle2, size=1)
+        normal_map2 = create_normal_sphere2(radius=RADIUS)
+        normal_map = create_normal_sphere2_vectorised(RADIUS, tracked_axis)
 
         pos = pygame.mouse.get_pos()
-        for i in range(1000):
-            screen.blit(cel_sphere, (pos[0] - RADIUS, pos[1] - RADIUS))
-            pygame.draw.circle(screen, (255, 0, 0), (pos[0] + RADIUS * 2.5, pos[1]), RADIUS)
-            gfxdraw.filled_circle(screen, int(pos[0] + RADIUS * 2.5 * 2), pos[1], RADIUS, (255, 0, 0))
+        # for i in range(1000):
+        #     screen.blit(cel_sphere, (pos[0] - RADIUS, pos[1] - RADIUS))
+        #     pygame.draw.circle(screen, (255, 0, 0), (pos[0] + RADIUS * 2.5, pos[1]), RADIUS)
+        #     gfxdraw.filled_circle(screen, int(pos[0] + RADIUS * 2.5 * 2), pos[1], RADIUS, (255, 0, 0))
 
-        # screen.blit(normal_map, (pos[0] - RADIUS, pos[1] - RADIUS))
+        screen.blit(normal_map, (pos[0] - RADIUS, pos[1] - RADIUS))
 
-        # screen.blit(normal_map, (WIDTH // 2 - 2.5 * RADIUS, HEIGHT // 2 - RADIUS))
-        # screen.blit(normal_map2, (WIDTH // 2 + RADIUS // 2, HEIGHT // 2 - RADIUS))
+        screen.blit(normal_map, (WIDTH // 2 - 2.5 * RADIUS, HEIGHT // 2 - RADIUS))
+        screen.blit(normal_map2, (WIDTH // 2 + RADIUS // 2, HEIGHT // 2 - RADIUS))
 
         # create_normal_sphere(radius=RADIUS, steps=50, screen=screen, offset1=angle1, offset2=angle2)
 

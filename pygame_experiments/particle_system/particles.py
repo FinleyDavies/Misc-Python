@@ -35,7 +35,9 @@ class Particle:
         self.age = age
         self.updates = 0
 
-        self.direction_vector = Vector2.from_polar((speed, direction))
+
+        self.direction_vector = Vector2()
+        self.direction_vector.from_polar((speed, direction))
 
         self.size_function = lambda x: x
         self.position_function = lambda x: x
@@ -156,8 +158,6 @@ class ParticleSystemPoint:
             self.add_particle(p)
             t += dT / n_particles
 
-        self.particles += []
-        self.total_particles += n_particles
 
         self.previous_emit_time = current_time
 
@@ -183,7 +183,7 @@ class ParticleSystemPoint:
         if num_steps == 0 or variance == 0:
             return value
 
-        print(value, variance)
+        #print(value, variance)
         if isinstance(value, tuple):
             return tuple([v + int((random.random() - 0.5) * num_steps) / num_steps * variance[i] * 2 for i, v in enumerate(value)])
         return value + int((random.random() - 0.5) * num_steps) / num_steps * variance * 2
@@ -268,8 +268,10 @@ if __name__ == "__main__":
         screen.fill((0, 0, 0))
 
         current_mouse_pos = pygame.mouse.get_pos()
+        v = Vector2(*current_mouse_pos) - Vector2(*previous_mouse_pos)
+        v.from_polar((20, 90))
         mouse_vel = tuple([x-y for x, y in zip(current_mouse_pos, previous_mouse_pos)])
-        new_vel = tuple([x+y for x, y in zip(mouse_vel, tuple(Vector2.from_polar((20, 90))))])
+        new_vel = tuple([x+y for x, y in zip(mouse_vel, v)])
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -290,6 +292,7 @@ if __name__ == "__main__":
             p3.emit()
 
         p.update()
+        print(p.total_particles)
         p2.update()
         p3.update()
 
