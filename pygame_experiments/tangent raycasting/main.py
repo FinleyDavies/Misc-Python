@@ -9,10 +9,11 @@ class Circle:
         self.x = x
         self.y = y
         self.r = r
+        self.weight = 2
         self.color = (0, 255, 255)
 
     def draw(self, screen):
-        pygame.draw.circle(screen, self.color, (self.x, self.y), self.r, 2)
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.r, self.weight)
 
     def intersects(self, other):
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2) < self.r + other.r
@@ -20,12 +21,16 @@ class Circle:
     def set_color(self, color):
         self.color = color
 
+    def set_weight(self, weight):
+        self.weight = weight
+
     def move(self, x, y):
         self.x = x
         self.y = y
 
     def increase_radius(self, r):
         self.r += r
+        self.r = min(200, max(10, self.r))
 
 
 def get_tangents(x1, y1, r1, x2, y2, r2):
@@ -62,6 +67,9 @@ def circle_line_intersection(cx, cy, cr, x1, y1, x2, y2, lb=True, ub=True):
     B = 2 * (dx * (x1 - cx) + dy * (y1 - cy))
     C = (x1 - cx) ** 2 + (y1 - cy) ** 2 - cr ** 2
     det = B ** 2 - 4 * A * C
+    if A == 0:
+        # Line is a point
+        return []
 
     if det < 0:
         # No real intersection
@@ -89,28 +97,56 @@ def circle_line_intersection(cx, cy, cr, x1, y1, x2, y2, lb=True, ub=True):
 
 def get_first_intersection(circles, ray):
     # get the first circle to be intersected by the ray
-    first_intersection = None
-    for c in circles:
+    first_intersection = (None, None)
+    for index, c in enumerate(circles):
         intersections = circle_line_intersection(c[0], c[1], c[2], ray[0], ray[1], ray[2], ray[3], ub=False)
         if intersections:
-            for i in intersections:
-                if not first_intersection:
-                    first_intersection = (i, c)
+            for intersection in intersections:
+                if not first_intersection is None:
+                    first_intersection = (intersection, index)
                 else:
-                    if abs(i[0] - ray[0]) < abs(first_intersection[0][0] - ray[0]):
-                        first_intersection = (i, c)
+                    if abs(intersection[0] - ray[0]) < abs(first_intersection[0][0] - ray[0]):
+                        first_intersection = (intersection, index)
     return first_intersection
 
 
-def is_visible(target, source, obstacles):
+def is_visible(target, source, obstacles, screen):
     # calculate all tangents from source to target:
-    tangents = get_tangents(source[0], source[1], 0, target[0], target[1], 0)
+    tangents = get_tangents(source[0], source[1], source[2], target[0], target[1], target[2])
     # check if the target is visible
     for t in tangents:
-        hit = get_first_intersection(obstacles, t)
-        if hit:
-            return False
-    return True
+        if not get_first_intersection(obstacles, t):
+            return t
+
+    for index, c in enumerate(obstacles):
+        tangents = get_tangents(source[0], source[1], source[2], c[0], c[1], c[2])
+        for t in tangents:
+            # remove current from obstacles to prevent intersection with tangent:
+            obstacles_excluding_current = obstacles[:index] + obstacles[index + 1:]
+            point, obstacle = get_first_intersection([target] + obstacles_excluding_current, t)
+            #draw unsuccessful rays:
+            pygame.draw.line(screen, (255, 0, 0), (t[0], t[1]), (t[2], t[3]), 1)
+            if point is not None and obstacle == 0:
+                pygame.draw.line(screen, (0, 255, 0), (t[0], t[1]), point, 2)
+                return t
+
+    #repeat the process for the target:
+    for index, c in enumerate(obstacles):
+        tangents = get_tangents(target[0], target[1], target[2], c[0], c[1], c[2])
+        for t in tangents:
+            # remove current from obstacles to prevent intersection with tangent:
+            obstacles_excluding_current = obstacles[:index] + obstacles[index + 1:]
+            point, obstacle = get_first_intersection([source] + obstacles_excluding_current, t)
+            #draw unsuccessful rays:
+            pygame.draw.line(screen, (255, 0, 0), (t[0], t[1]), (t[2], t[3]), 2)
+            if point is not None and obstacle == 0:
+                pygame.draw.line(screen, (0, 255, 0), (t[0], t[1]), point, 2)
+                return t
+
+    # start checking tangents between obstacles:
+
+
+
 
 
 def main():
@@ -121,31 +157,45 @@ def main():
     position = (200, 200)
     # create list of 10 random circles:
 
-    selected = None
 
     source = Circle(200, 200, 100)
     source.set_color((0, 255, 0))
     target = Circle(300, 200, 100)
     target.set_color((255, 0, 0))
-    circles = [source, target]
+    circles = []
     for i in range(10):
         circles.append(Circle(random.randint(0, 800), random.randint(0, 600), random.randint(10, 100)))
 
+    selected = None
+    last_selected = source
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    circles.append(Circle(random.randint(0, 800), random.randint(0, 600), random.randint(10, 100)))
+                elif event.key == pygame.K_DELETE:
+                    circles.remove(last_selected)
+                    last_selected = source
+            elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    for c in circles:
+                    for c in circles + [source, target]:
                         if math.sqrt((c.x - event.pos[0]) ** 2 + (c.y - event.pos[1]) ** 2) < c.r:
+                            last_selected.set_weight(2)
+                            last_selected = c
                             selected = c
-                if event.button == 4 and selected is not None and selected.r < 200:
-                    selected.increase_radius(10)
-                if event.button == 5 and selected is not None and selected.r > 10:
-                    selected.increase_radius(-10)
+                            selected.set_weight(4)
+
+
+                if event.button == 4 and last_selected is not None:
+                    last_selected.increase_radius(10)
+                if event.button == 5 and last_selected is not None:
+                    last_selected.increase_radius(-10)
             if event.type == pygame.MOUSEBUTTONUP:
-                selected = None
+                if event.button == 1:
+                    selected = None
+
 
         if selected is not None:
             delta = pygame.mouse.get_rel()
@@ -158,21 +208,27 @@ def main():
         tangents = get_tangents(source.x, source.y, source.r, target.x, target.y, target.r)
         poly = Polygon(((tangents[0][0], tangents[0][1]), (tangents[1][0], tangents[1][1]),
                         (tangents[1][2], tangents[1][3]), (tangents[0][2], tangents[0][3])))
-        pygame.draw.polygon(screen, (255, 255, 255), poly.exterior.coords, 2)
 
+        # pygame.draw.polygon(screen, (255, 255, 255), poly.exterior.coords, 2)
+        # for t in tangents:
+        #     pygame.draw.line(screen, (255, 255, 255), (t[0], t[1]), (t[2], t[3]), 2)
+        #     hit = get_first_intersection([(c.x, c.y, c.r) for c in circles], t)
+        #     if hit:
+        #         pygame.draw.circle(screen, (255, 255, 0), (hit[0][0], hit[0][1]), 5)
+
+        obstacles = []
         for c in circles:
             circle = Point(c.x, c.y).buffer(c.r)
             if poly.intersects(circle):
                 c.set_color((255, 0, 255))
+                obstacles.append((c.x, c.y, c.r))
             else:
                 c.set_color((0, 255, 255))
+        for c in circles + [source, target]:
             c.draw(screen)
 
-        for t in tangents:
-            pygame.draw.line(screen, (255, 255, 255), (t[0], t[1]), (t[2], t[3]), 2)
-            hit = get_first_intersection([(c.x, c.y, c.r) for c in circles], t)
-            if hit:
-                pygame.draw.circle(screen, (255, 255, 0), (hit[0][0], hit[0][1]), 5)
+        los = is_visible((target.x, target.y, target.r), (source.x, source.y, source.r), obstacles, screen)
+
 
         pygame.display.flip()
         clock.tick(60)
