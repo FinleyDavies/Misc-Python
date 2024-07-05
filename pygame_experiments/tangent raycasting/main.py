@@ -4,6 +4,30 @@ import random
 from shapely.geometry import Polygon, Point
 
 
+class Circle:
+    def __init__(self, x, y, r):
+        self.x = x
+        self.y = y
+        self.r = r
+        self.color = (0, 255, 255)
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.r, 2)
+
+    def intersects(self, other):
+        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2) < self.r + other.r
+
+    def set_color(self, color):
+        self.color = color
+
+    def move(self, x, y):
+        self.x = x
+        self.y = y
+
+    def increase_radius(self, r):
+        self.r += r
+
+
 def get_tangents(x1, y1, r1, x2, y2, r2):
     # translated to python with chatgpt from:
     # https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
@@ -77,6 +101,7 @@ def get_first_intersection(circles, ray):
                         first_intersection = (i, c)
     return first_intersection
 
+
 def is_visible(target, source, obstacles):
     # calculate all tangents from source to target:
     tangents = get_tangents(source[0], source[1], 0, target[0], target[1], 0)
@@ -87,6 +112,7 @@ def is_visible(target, source, obstacles):
             return False
     return True
 
+
 def main():
     screen = pygame.display.set_mode((800, 600))
     clock = pygame.time.Clock()
@@ -94,46 +120,57 @@ def main():
     radius = 100
     position = (200, 200)
     # create list of 10 random circles:
-    circles = []
+
+    selected = None
+
+    source = Circle(200, 200, 100)
+    source.set_color((0, 255, 0))
+    target = Circle(300, 200, 100)
+    target.set_color((255, 0, 0))
+    circles = [source, target]
     for i in range(10):
-        x = random.randint(0, 800)
-        y = random.randint(0, 600)
-        r = random.randint(10, 100)
-        circles.append((x, y, r))
+        circles.append(Circle(random.randint(0, 800), random.randint(0, 600), random.randint(10, 100)))
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 4 and radius < 200:
-                    radius += 10
-                if event.button == 5 and radius > 10:
-                    radius -= 10
+                if event.button == 1:
+                    for c in circles:
+                        if math.sqrt((c.x - event.pos[0]) ** 2 + (c.y - event.pos[1]) ** 2) < c.r:
+                            selected = c
+                if event.button == 4 and selected is not None and selected.r < 200:
+                    selected.increase_radius(10)
+                if event.button == 5 and selected is not None and selected.r > 10:
+                    selected.increase_radius(-10)
+            if event.type == pygame.MOUSEBUTTONUP:
+                selected = None
 
+        if selected is not None:
+            delta = pygame.mouse.get_rel()
+            selected.move(selected.x + delta[0], selected.y + delta[1])
         screen.fill((30, 30, 30))
+        pygame.mouse.get_rel()
         position = pygame.mouse.get_pos()
 
-        # draw circles
-        pygame.draw.circle(screen, (255, 0, 0), (200, 200), 100, 2)
-        pygame.draw.circle(screen, (0, 255, 0), position, radius, 2)
-
         # get tangents
-        tangents = get_tangents(position[0], position[1], radius, 200, 200, 100)
+        tangents = get_tangents(source.x, source.y, source.r, target.x, target.y, target.r)
         poly = Polygon(((tangents[0][0], tangents[0][1]), (tangents[1][0], tangents[1][1]),
                         (tangents[1][2], tangents[1][3]), (tangents[0][2], tangents[0][3])))
         pygame.draw.polygon(screen, (255, 255, 255), poly.exterior.coords, 2)
-        for c in circles:
 
-            circle = Point(c[0], c[1]).buffer(c[2])
+        for c in circles:
+            circle = Point(c.x, c.y).buffer(c.r)
             if poly.intersects(circle):
-                pygame.draw.circle(screen, (255, 0, 255), (c[0], c[1]), c[2], 2)
+                c.set_color((255, 0, 255))
             else:
-                pygame.draw.circle(screen, (0, 255, 255), (c[0], c[1]), c[2], 2)
+                c.set_color((0, 255, 255))
+            c.draw(screen)
 
         for t in tangents:
             pygame.draw.line(screen, (255, 255, 255), (t[0], t[1]), (t[2], t[3]), 2)
-            hit = get_first_intersection(circles, t)
+            hit = get_first_intersection([(c.x, c.y, c.r) for c in circles], t)
             if hit:
                 pygame.draw.circle(screen, (255, 255, 0), (hit[0][0], hit[0][1]), 5)
 
