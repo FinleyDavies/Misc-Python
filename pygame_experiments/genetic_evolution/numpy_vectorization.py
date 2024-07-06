@@ -3,7 +3,7 @@ import cProfile
 
 from math import sin, cos, pi, atan2, sqrt
 
-from numba import njit
+#from numba import njit
 import time
 
 
@@ -141,35 +141,35 @@ def get_visible_numpy_optimized_2(positions, sensors):
     #print(f"{numpy.count_nonzero(distance_angle_mask)} visible objects")
     return visible_positions
 
-@njit
-def get_visible_naive_jit(positions, sensors):
-    sensor_data = []
-    for x, y, direction, _range, FOV in sensors:
-        stimuli = []
-        for x2, y2, direction2 in positions:
-            # calculate relative position of object
-            # if the object is within range and FOV, add it to the list of stimuli
-            rel_x, rel_y = x2 - x, y2 - y
-            if rel_x ** 2 + rel_y ** 2 <= _range ** 2:
-                if abs(atan2(rel_y, rel_x) - direction) <= FOV / 2:
-                    stimuli.append([x2, y2, direction2])
-        sensor_data.append(stimuli)
-    return sensor_data
+# @njit
+# def get_visible_naive_jit(positions, sensors):
+#     sensor_data = []
+#     for x, y, direction, _range, FOV in sensors:
+#         stimuli = []
+#         for x2, y2, direction2 in positions:
+#             # calculate relative position of object
+#             # if the object is within range and FOV, add it to the list of stimuli
+#             rel_x, rel_y = x2 - x, y2 - y
+#             if rel_x ** 2 + rel_y ** 2 <= _range ** 2:
+#                 if abs(atan2(rel_y, rel_x) - direction) <= FOV / 2:
+#                     stimuli.append([x2, y2, direction2])
+#         sensor_data.append(stimuli)
+#     return sensor_data
 
-@njit
-def get_visible_naive_no_sqrt_jit(positions, sensors):
-    sensor_data = []
-    for x, y, direction, _range, FOV in sensors:
-        stimuli = []
-        for x2, y2, direction2 in positions:
-            # calculate relative position of object
-            # if the object is within range and FOV, add it to the list of stimuli
-            rel_x, rel_y = x2 - x, y2 - y
-            if rel_x ** 2 + rel_y ** 2 <= _range ** 2:
-                if abs(atan2(rel_y, rel_x) - direction) <= FOV / 2:
-                    stimuli.append([x2, y2, direction2])
-        sensor_data.append(stimuli)
-    return sensor_data
+# @njit
+# def get_visible_naive_no_sqrt_jit(positions, sensors):
+#     sensor_data = []
+#     for x, y, direction, _range, FOV in sensors:
+#         stimuli = []
+#         for x2, y2, direction2 in positions:
+#             # calculate relative position of object
+#             # if the object is within range and FOV, add it to the list of stimuli
+#             rel_x, rel_y = x2 - x, y2 - y
+#             if rel_x ** 2 + rel_y ** 2 <= _range ** 2:
+#                 if abs(atan2(rel_y, rel_x) - direction) <= FOV / 2:
+#                     stimuli.append([x2, y2, direction2])
+#         sensor_data.append(stimuli)
+#     return sensor_data
 
 
 def benchmark(function, *args, maxtime=5, **kwargs):
@@ -209,11 +209,11 @@ def main():
     benchmark(get_visible_naive, positions, sensors)
     benchmark(get_visible_naive_no_sqrt, positions, sensors)
     benchmark(get_visible_numpy, positions, sensors)
-    #benchmark(get_visible_numpy_early_exit, positions, sensors)
+    benchmark(get_visible_numpy_early_exit, positions, sensors)
     benchmark(get_visible_numpy_optimized, positions, sensors)
     benchmark(get_visible_numpy_optimized_2, positions, sensors)
-    benchmark(get_visible_naive_jit, positions, sensors)
-    benchmark(get_visible_naive_no_sqrt_jit, positions, sensors)
+    #benchmark(get_visible_naive_jit, positions, sensors)
+    #benchmark(get_visible_naive_no_sqrt_jit, positions, sensors)
 
 
 
