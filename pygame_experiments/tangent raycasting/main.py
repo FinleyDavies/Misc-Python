@@ -1,4 +1,5 @@
 import pygame
+import os
 import math
 import random
 from shapely.geometry import Polygon, Point
@@ -171,6 +172,23 @@ def is_visible(target, source, obstacles, screen):
                         pygame.draw.line(screen, (0, 255, 0), (t[2], t[3]), point2, 2)
                         return t
 
+def save_state(source, target, obstacles):
+    with open("state.txt", "w") as f:
+        f.write(f"{source[0]} {source[1]} {source[2]}\n")
+        f.write(f"{target[0]} {target[1]} {target[2]}\n")
+        for o in obstacles:
+            f.write(f"{o[0]} {o[1]} {o[2]}\n")
+
+def load_state():
+    with open("state.txt", "r") as f:
+        source = Circle(*list(map(float, f.readline().strip().split())))
+        source.set_color((0, 255, 0))
+        target = Circle(*list(map(float, f.readline().strip().split())))
+        target.set_color((255, 0, 0))
+        obstacles = []
+        for line in f:
+            obstacles.append(Circle(*list(map(float, line.strip().split()))))
+    return source, target, obstacles
 
 def main():
     screen = pygame.display.set_mode((800, 600))
@@ -180,19 +198,31 @@ def main():
     position = (200, 200)
     # create list of 10 random circles:
 
-    source = Circle(200, 200, 100)
-    source.set_color((0, 255, 0))
-    target = Circle(300, 200, 100)
-    target.set_color((255, 0, 0))
-    circles = []
-    for i in range(10):
-        circles.append(Circle(random.randint(0, 800), random.randint(0, 600), random.randint(10, 100)))
+    if not "state.txt" in os.listdir():
+        source = Circle(200, 200, 100)
+        source.set_color((0, 255, 0))
+        target = Circle(300, 200, 100)
+        target.set_color((255, 0, 0))
+        circles = []
+        for i in range(10):
+            circles.append(Circle(random.randint(0, 800), random.randint(0, 600), random.randint(10, 100)))
+    else:
+        source, target, circles = load_state()
 
     selected = None
     last_selected = source
 
-    print(
-        "Press space to add a random circle, scroll to change radius, click and drag to move, press backspace to remove last selected")
+    # print explenation:
+    print("Click on a circle to select it and move it with the mouse")
+    print("Use the mouse wheel to increase or decrease the radius of the selected circle")
+    print("Press SPACE to add a circle")
+    print("Press BACKSPACE to remove the last selected circle")
+    print("Press S to save the current state")
+    print("Press L to load the last saved state")
+
+
+
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -203,6 +233,11 @@ def main():
                 elif event.key == pygame.K_BACKSPACE:
                     circles.remove(last_selected)
                     last_selected = source
+                elif event.key == pygame.K_s:
+                    save_state((source.x, source.y, source.r), (target.x, target.y, target.r),
+                               [(c.x, c.y, c.r) for c in circles])
+                elif event.key == pygame.K_l:
+                    source, target, circles = load_state()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     for c in circles + [source, target]:
